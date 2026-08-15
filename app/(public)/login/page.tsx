@@ -111,9 +111,9 @@ export default function LoginPage() {
               </Button>
 
               <div className="pt-2 text-center text-xs text-surface-600 dark:text-surface-400">
-                Don&apos;t have an account?{' '}
-                <Link href="/signup" className="text-brand-600 dark:text-brand-400 font-semibold hover:underline">
-                  Create Organization / Sign Up
+                Interested in Universal HRMS for your organization?{' '}
+                <Link href="/demo" className="text-brand-600 dark:text-brand-400 font-semibold hover:underline">
+                  Book a Demo & Contact Sales
                 </Link>
               </div>
             </form>

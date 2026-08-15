@@ -107,6 +107,9 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
           subdomainSlug: convertSubdomain.trim(),
           organizationName: lead?.orgName,
           organizationTypeCode: lead?.orgTypeCode,
+          ownerFullName: lead?.fullName,
+          ownerEmail: lead?.email,
+          ownerPassword: 'Admin@123456',
         }),
       });
 

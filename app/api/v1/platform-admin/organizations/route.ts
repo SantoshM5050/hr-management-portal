@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { headers } from 'next/headers';
 import { db } from '@/lib/db';
-import { hashPassword, signJwt, getSessionCookieOptions, verifyJwt, SESSION_COOKIE_NAME } from '@/lib/auth';
-import { checkRateLimit } from '@/lib/rate-limit';
-import { logAuditEvent } from '@/lib/audit';
+import { verifyJwt, SESSION_COOKIE_NAME, hashPassword } from '@/lib/auth';
 import { apiSuccess, apiError } from '@/lib/api-response';
+import { logAuditEvent } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,41 +10,108 @@ const RESERVED_SUBDOMAINS = new Set([
   'www', 'admin', 'platform', 'api', 'app', 'mail', 'smtp', 'support', 'billing', 'auth', 'status'
 ]);
 
-export async function POST(request: NextRequest) {
-  const reqHeaders = headers();
-  const clientIp = reqHeaders.get('x-forwarded-for') || request.headers.get('x-forwarded-for') || '127.0.0.1';
-
-  // 1. Authorization Check: Only Platform Staff can provision organizations
-  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  const session = token ? verifyJwt(token) : null;
-
-  if (!session) {
-    return apiError('Authentication required to provision an organization.', 'UNAUTHORIZED', 401);
-  }
-
-  if (!session.isPlatformStaff) {
-    return apiError('Forbidden: Only Platform Staff can provision organization tenants.', 'FORBIDDEN', 403);
-  }
-
-  // 2. Rate limiting (Max 10 provisioning attempts per minute)
-  const rateCheck = checkRateLimit(`signup:${clientIp}`, 10, 60);
-  if (!rateCheck.allowed) {
-    return apiError(`Too many provisioning attempts. Please wait ${rateCheck.resetSeconds} seconds.`, 'RATE_LIMIT_EXCEEDED', 429);
-  }
-
+/**
+ * GET /api/v1/platform-admin/organizations
+ * List all provisioned organizations with search, pagination, and status filters.
+ */
+export async function GET(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { email, password, fullName, orgName, orgTypeCode, subdomainSlug } = body;
+    const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+    const session = token ? verifyJwt(token) : null;
 
-    // 2. Server-side Validation
+    if (!session || !session.isPlatformStaff) {
+      return apiError('Forbidden: Platform Staff authorization required', 'FORBIDDEN', 403);
+    }
+
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get('search') || '';
+    const status = searchParams.get('status') || '';
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '10', 10)));
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (status && status !== 'ALL') {
+      where.status = status;
+    }
+
+    if (search.trim()) {
+      const q = search.trim();
+      where.OR = [
+        { name: { contains: q, mode: 'insensitive' } },
+        { slug: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const [total, items] = await Promise.all([
+      db.organization.count({ where }),
+      db.organization.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          organizationType: true,
+          domains: true,
+          modules: { include: { module: true } },
+          memberships: {
+            where: { roles: { some: { code: 'OWNER' } } },
+            include: { user: { select: { id: true, fullName: true, email: true } } },
+          },
+        },
+      }),
+    ]);
+
+    return apiSuccess({
+      organizations: items,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    });
+  } catch (err) {
+    console.error('GET /platform-admin/organizations error:', err);
+    return apiError('Internal server error', 'INTERNAL_ERROR', 500);
+  }
+}
+
+/**
+ * POST /api/v1/platform-admin/organizations
+ * Full transactional organization provisioning engine for Platform Admins.
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+    const session = token ? verifyJwt(token) : null;
+
+    if (!session || !session.isPlatformStaff) {
+      return apiError('Forbidden: Platform Staff authorization required to provision organizations', 'FORBIDDEN', 403);
+    }
+
+    const body = await request.json();
+    const {
+      email,
+      password,
+      fullName,
+      orgName,
+      orgTypeCode,
+      subdomainSlug,
+      leadId,
+      enabledModuleCodes = ['CORE', 'ATTENDANCE', 'LEAVE'],
+    } = body;
+
+    // Server-side Validation
     if (!email || !email.includes('@')) {
-      return apiError('Valid email address is required', 'VALIDATION_ERROR', 422);
+      return apiError('Valid work email address is required', 'VALIDATION_ERROR', 422);
     }
     if (!password || password.length < 8) {
       return apiError('Password must be at least 8 characters long', 'VALIDATION_ERROR', 422);
     }
     if (!fullName || fullName.trim().length === 0) {
-      return apiError('Full Name is required', 'VALIDATION_ERROR', 422);
+      return apiError('Owner Full Name is required', 'VALIDATION_ERROR', 422);
     }
     if (!orgName || orgName.trim().length === 0) {
       return apiError('Organization Name is required', 'VALIDATION_ERROR', 422);
@@ -67,16 +132,13 @@ export async function POST(request: NextRequest) {
     const rootDomain = rawRootDomain.split(':')[0].toLowerCase().trim();
     const isLocalhost = rootDomain === 'localhost' || rootDomain === '127.0.0.1';
 
-    // Domain name stored in DB (without port)
     const tenantDomainName = `${slug}.${rootDomain}`;
-
-    // Full tenant hostname for client display & redirects (includes port if present in rawRootDomain)
     const tenantHostname = rawRootDomain.includes(':') 
       ? `${slug}.${rawRootDomain}` 
       : `${slug}.${rootDomain}`;
 
     const protocol = request.headers.get('x-forwarded-proto') || (isLocalhost ? 'http' : 'https');
-    const redirectUrl = `${protocol}://${tenantHostname}/app/dashboard`;
+    const redirectUrl = `${protocol}://${tenantHostname}/login`;
 
     // Check if user already exists
     const existingUser = await db.user.findUnique({ where: { email: normalizedEmail } });
@@ -84,16 +146,10 @@ export async function POST(request: NextRequest) {
       return apiError('An account with this email address already exists.', 'CONFLICT', 409);
     }
 
-    // Check if subdomain is already taken in Organization
+    // Check if subdomain is already taken
     const existingOrg = await db.organization.findUnique({ where: { slug } });
     if (existingOrg) {
-      return apiError(`Subdomain '${slug}' is already reserved by another organization.`, 'CONFLICT', 409);
-    }
-
-    // Check if domain is already taken in Domain
-    const existingDomain = await db.domain.findUnique({ where: { domain: tenantDomainName } });
-    if (existingDomain) {
-      return apiError(`Subdomain '${slug}' is already reserved by another organization.`, 'CONFLICT', 409);
+      return apiError(`Subdomain '${slug}' is already reserved by another tenant.`, 'CONFLICT', 409);
     }
 
     // Verify or Auto-create OrganizationType fallback
@@ -122,13 +178,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Hash Password
     const passwordHash = await hashPassword(password);
-
-    // Get core permissions to assign to Owner role
     const permissions = await db.permission.findMany();
 
-    // Execute Transactional Provisioning
+    // Execute Transactional Tenant Provisioning
     const result = await db.$transaction(async (tx) => {
       // 1. Create User
       const user = await tx.user.create({
@@ -206,81 +259,66 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 6. Enable Core Module
-      let coreModule = await tx.module.findUnique({ where: { code: 'CORE' } });
-      if (!coreModule) {
-        coreModule = await tx.module.create({
+      // 6. Enable Core & Selected Modules
+      const requestedCodes = Array.from(new Set(['CORE', ...enabledModuleCodes]));
+      const modules = await tx.module.findMany({
+        where: { code: { in: requestedCodes } },
+      });
+
+      for (const mod of modules) {
+        await tx.organizationModule.create({
           data: {
-            code: 'CORE',
-            name: 'Universal Core HR & Org Structure',
-            description: 'Core people, units, roles, and settings',
-            isCore: true,
+            organizationId: org.id,
+            moduleId: mod.id,
+            isEnabled: true,
           },
         });
       }
 
-      await tx.organizationModule.create({
-        data: {
-          organizationId: org.id,
-          moduleId: coreModule.id,
-          isEnabled: true,
-        },
-      });
+      // 7. Update Lead if converting from lead
+      if (leadId) {
+        await tx.lead.update({
+          where: { id: leadId },
+          data: {
+            status: 'CONVERTED',
+            convertedOrgId: org.id,
+            activities: {
+              create: {
+                type: 'CONVERTED',
+                description: `Lead converted to Organization '${org.name}' (Subdomain: ${tenantHostname}). Owner user: ${user.email}`,
+              },
+            },
+          },
+        });
+      }
 
       return { user, org, membership, ownerRole };
     });
 
     // Audit Event
     await logAuditEvent({
-      userId: result.user.id,
+      userId: session.userId,
       organizationId: result.org.id,
-      action: 'ORGANIZATION_CREATED',
+      action: 'ORGANIZATION_PROVISIONED_BY_ADMIN',
       entity: 'ORGANIZATION',
       entityId: result.org.id,
-      details: { slug, name: result.org.name, orgType: orgType.code },
-      ipAddress: clientIp,
+      details: { slug, name: result.org.name, orgType: orgType.code, ownerEmail: result.user.email, leadId: leadId || null },
     });
 
-    // Issue JWT Session Cookie
-    const sessionToken = signJwt({
-      userId: result.user.id,
-      email: result.user.email,
-      fullName: result.user.fullName,
-      isPlatformStaff: false,
-      tenantId: result.org.id,
-      membershipId: result.membership.id,
-      roleCodes: ['OWNER'],
-    });
-
-    const cookieOpts = getSessionCookieOptions();
-    const response = NextResponse.json({
-      success: true,
-      data: {
-        user: {
-          id: result.user.id,
-          email: result.user.email,
-          fullName: result.user.fullName,
-        },
-        organization: {
-          id: result.org.id,
-          name: result.org.name,
-          slug: result.org.slug,
-          subdomain: tenantHostname,
-          domain: tenantDomainName,
-          url: redirectUrl,
-        },
+    return apiSuccess({
+      organization: {
+        id: result.org.id,
+        name: result.org.name,
+        slug: result.org.slug,
+        subdomain: tenantHostname,
+        domain: tenantDomainName,
+        url: redirectUrl,
+        ownerEmail: result.user.email,
+        ownerFullName: result.user.fullName,
       },
-    });
-
-    response.cookies.set(cookieOpts.name, sessionToken, cookieOpts);
-
-    return response;
+    }, 201);
   } catch (err: any) {
-    console.error('Signup API Failure:', {
-      message: err?.message,
-      code: err?.code,
-      meta: err?.meta,
-    });
+    console.error('Platform Admin Provisioning Failure:', err);
 
     if (err?.code === 'P2002') {
       const target = err?.meta?.target;
@@ -290,10 +328,6 @@ export async function POST(request: NextRequest) {
       return apiError('Subdomain is already reserved by another organization.', 'CONFLICT', 409);
     }
 
-    const detailMsg = err?.message
-      ? `Signup error: ${err.message}`
-      : 'An unexpected error occurred during signup';
-
-    return apiError(detailMsg, 'INTERNAL_ERROR', 500);
+    return apiError(err?.message ? `Provisioning error: ${err.message}` : 'Failed to provision tenant organization', 'INTERNAL_ERROR', 500);
   }
 }

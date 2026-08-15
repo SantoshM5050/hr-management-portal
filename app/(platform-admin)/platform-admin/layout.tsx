@@ -37,11 +37,11 @@ export default function PlatformAdminLayout({ children }: { children: React.Reac
             <span>Leads & Demo Requests</span>
           </Link>
           <Link
-            href="/platform-admin/tenants"
+            href="/platform-admin/organizations"
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-surface-300 hover:text-white hover:bg-surface-800 transition-colors"
           >
             <Building2 className="w-4 h-4 text-sky-400" />
-            <span>Tenants & Orgs</span>
+            <span>Organizations & Tenants</span>
           </Link>
           <Link
             href="/platform-admin/subscriptions"

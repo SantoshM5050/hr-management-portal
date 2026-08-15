@@ -72,19 +72,14 @@ export default async function HomePage() {
             Stop managing separate systems. Whether you operate a tech startup, corporate enterprise, school, college, hospital, factory, or NGO — Universal HRMS adapts to your terminology and workflows seamlessly.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <Link href="/signup">
-              <Button size="lg" className="w-full sm:w-auto text-base px-8 py-3.5 shadow-lg shadow-brand-500/20">
-                Get Started Free <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
-            </Link>
             <Link href="/demo">
-              <Button variant="outline" size="lg" className="w-full sm:w-auto text-base px-8 py-3.5">
-                Book a Demo
+              <Button size="lg" className="w-full sm:w-auto text-base px-8 py-3.5 shadow-lg shadow-brand-500/20">
+                Book a Free Demo <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
             </Link>
             <Link href="/pricing">
-              <Button variant="ghost" size="lg" className="w-full sm:w-auto text-base px-8 py-3.5">
-                View Pricing
+              <Button variant="outline" size="lg" className="w-full sm:w-auto text-base px-8 py-3.5">
+                View Pricing & Plans
               </Button>
             </Link>
           </div>
