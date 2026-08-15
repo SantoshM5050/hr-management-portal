@@ -82,7 +82,10 @@ export function PublicNavbar() {
             <Button variant="ghost" size="sm">Sign In</Button>
           </Link>
           <Link href="/demo">
-            <Button variant="primary" size="sm">Book Demo</Button>
+            <Button variant="outline" size="sm">Book Demo</Button>
+          </Link>
+          <Link href="/signup">
+            <Button variant="primary" size="sm">Sign Up</Button>
           </Link>
         </div>
 
@@ -116,8 +119,11 @@ export function PublicNavbar() {
             <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
               <Button variant="outline" className="w-full">Sign In</Button>
             </Link>
+            <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
+              <Button variant="primary" className="w-full">Sign Up</Button>
+            </Link>
             <Link href="/demo" onClick={() => setMobileMenuOpen(false)}>
-              <Button variant="primary" className="w-full">Book Demo</Button>
+              <Button variant="ghost" className="w-full">Book Demo</Button>
             </Link>
           </div>
         </div>

@@ -109,6 +109,13 @@ export default function LoginPage() {
               <Button type="submit" variant="primary" isLoading={loading} className="w-full">
                 Sign In <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
+
+              <div className="pt-2 text-center text-xs text-surface-600 dark:text-surface-400">
+                Don&apos;t have an account?{' '}
+                <Link href="/signup" className="text-brand-600 dark:text-brand-400 font-semibold hover:underline">
+                  Create Organization / Sign Up
+                </Link>
+              </div>
             </form>
           </CardContent>
         )}
