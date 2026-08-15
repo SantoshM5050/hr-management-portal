@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, HelpCircle } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Data-Driven Pricing Plans — Universal HRMS SaaS',
   description: 'Transparent, scalable pricing plans for Companies, Startups, Schools, Colleges, Hospitals, and Organizations.',
@@ -58,25 +60,23 @@ export default async function PricingPage() {
                     Included Capabilities
                   </div>
                   <ul className="space-y-2.5 text-sm">
-                    {featuresList.map((feature, i) => (
-                      <li key={i} className="flex items-start gap-2.5 text-surface-700 dark:text-surface-300">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                        <span>{feature}</span>
+                    {featuresList.map((feat, idx) => (
+                      <li key={idx} className="flex items-center gap-2 text-surface-700 dark:text-surface-300">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                        <span>{feat}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
 
-                <div className="pt-4 border-t border-surface-100 dark:border-surface-800 space-y-3">
-                  <div className="text-xs text-surface-500 flex justify-between">
-                    <span>Active Member Limit:</span>
-                    <span className="font-semibold text-surface-900 dark:text-surface-100">
-                      {limits.maxMembers === -1 ? 'Unlimited' : `${limits.maxMembers} Members`}
-                    </span>
+                <div className="pt-6 border-t border-surface-100 dark:border-surface-800 space-y-4">
+                  <div className="text-xs text-surface-500 space-y-1">
+                    <div>Capacity: {limits.maxMembers ? `${limits.maxMembers} Members` : 'Unlimited Members'}</div>
+                    <div>Storage: {limits.maxStorageMb ? `${limits.maxStorageMb / 1024} GB Storage` : 'Unlimited Storage'}</div>
                   </div>
-                  <Link href={`/demo?plan=${plan.code}`} className="block">
+                  <Link href={`/demo?plan=${plan.code}`}>
                     <Button variant={plan.code === 'PROFESSIONAL' ? 'primary' : 'outline'} className="w-full">
-                      Book a Demo for {plan.name}
+                      Request Demo with {plan.name}
                     </Button>
                   </Link>
                 </div>
@@ -84,20 +84,6 @@ export default async function PricingPage() {
             </Card>
           );
         })}
-      </div>
-
-      {/* Pricing Guarantee */}
-      <div className="p-8 rounded-2xl bg-surface-100 dark:bg-surface-800/60 border border-surface-200 dark:border-surface-700 max-w-4xl mx-auto flex flex-col sm:flex-row items-center gap-6">
-        <HelpCircle className="w-10 h-10 text-brand-600 shrink-0" />
-        <div className="space-y-1 text-center sm:text-left">
-          <h3 className="text-lg font-bold text-surface-900 dark:text-surface-100">Need a Custom Enterprise Agreement?</h3>
-          <p className="text-sm text-surface-600 dark:text-surface-400">
-            We provide custom SLA contracts, dedicated database instances, custom domain configurations, and volume licensing for organizations with over 1,000 members.
-          </p>
-        </div>
-        <Link href="/contact" className="shrink-0">
-          <Button variant="outline">Contact Sales</Button>
-        </Link>
       </div>
     </div>
   );

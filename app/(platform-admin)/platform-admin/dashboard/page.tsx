@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Users, Building2, TrendingUp, Sparkles, ArrowRight } from 'lucide-react';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 export default async function PlatformDashboardPage() {
   const [totalLeads, newLeads, convertedLeads, totalTenants] = await Promise.all([
     db.lead.count(),
@@ -62,11 +64,11 @@ export default async function PlatformDashboardPage() {
         <Card>
           <CardContent className="p-6 flex items-center justify-between">
             <div>
-              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider">Conversion Rate</div>
-              <div className="text-3xl font-extrabold text-sky-600 dark:text-sky-400 mt-1">{conversionRate}%</div>
+              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider">Converted Tenants</div>
+              <div className="text-3xl font-extrabold text-brand-600 dark:text-brand-400 mt-1">{convertedLeads}</div>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-sky-50 dark:bg-sky-950/50 text-sky-600 flex items-center justify-center">
-              <TrendingUp className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-xl bg-brand-50 dark:bg-brand-950/50 text-brand-600 flex items-center justify-center">
+              <Building2 className="w-6 h-6" />
             </div>
           </CardContent>
         </Card>
@@ -74,47 +76,54 @@ export default async function PlatformDashboardPage() {
         <Card>
           <CardContent className="p-6 flex items-center justify-between">
             <div>
-              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider">Active Tenants</div>
-              <div className="text-3xl font-extrabold text-surface-900 dark:text-surface-50 mt-1">{totalTenants}</div>
+              <div className="text-xs font-semibold text-surface-500 uppercase tracking-wider">Conversion Rate</div>
+              <div className="text-3xl font-extrabold text-purple-600 dark:text-purple-400 mt-1">{conversionRate}%</div>
             </div>
             <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 flex items-center justify-center">
-              <Building2 className="w-6 h-6" />
+              <TrendingUp className="w-6 h-6" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Activity List */}
+      {/* Recent Leads Activity Section */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Recent Demo Requests & Leads</CardTitle>
-          <Link href="/platform-admin/leads" className="text-xs font-semibold text-brand-600 hover:underline flex items-center gap-1">
-            View Lead CRM <ArrowRight className="w-3.5 h-3.5" />
+        <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-surface-100 dark:border-surface-800">
+          <div>
+            <CardTitle className="text-lg font-bold">Recent Inbound Lead Requests</CardTitle>
+            <p className="text-xs text-surface-500">Latest demo and sales requests submitted via marketing site</p>
+          </div>
+          <Link href="/platform-admin/leads">
+            <Button variant="outline" size="sm">
+              View All <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
           </Link>
         </CardHeader>
-        <CardContent>
-          {recentLeads.length === 0 ? (
-            <p className="text-sm text-surface-500 py-4 text-center">No demo requests received yet.</p>
-          ) : (
-            <div className="divide-y divide-surface-200 dark:divide-surface-800">
-              {recentLeads.map((lead) => (
-                <div key={lead.id} className="py-3 flex items-center justify-between text-sm">
-                  <div>
-                    <div className="font-semibold text-surface-900 dark:text-surface-100">{lead.fullName}</div>
-                    <div className="text-xs text-surface-500">{lead.orgName} ({lead.orgTypeCode}) — {lead.email}</div>
+        <CardContent className="p-0">
+          <div className="divide-y divide-surface-100 dark:divide-surface-800">
+            {recentLeads.length === 0 ? (
+              <div className="p-8 text-center text-xs text-surface-500">No lead requests submitted yet.</div>
+            ) : (
+              recentLeads.map((lead) => (
+                <div key={lead.id} className="p-4 flex items-center justify-between hover:bg-surface-50 dark:hover:bg-surface-900/50 transition-colors">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-surface-900 dark:text-surface-100">{lead.fullName}</span>
+                      <Badge variant={lead.status === 'NEW' ? 'success' : lead.status === 'CONVERTED' ? 'info' : 'default'}>
+                        {lead.status}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-surface-500">
+                      {lead.orgName} ({lead.orgTypeCode}) • {lead.email}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Badge variant={lead.status === 'NEW' ? 'warning' : lead.status === 'CONVERTED' ? 'success' : 'info'}>
-                      {lead.status}
-                    </Badge>
-                    <Link href={`/platform-admin/leads/${lead.id}`}>
-                      <Button variant="outline" size="sm">View Detail</Button>
-                    </Link>
-                  </div>
+                  <Link href={`/platform-admin/leads/${lead.id}`}>
+                    <Button variant="ghost" size="sm">Details</Button>
+                  </Link>
                 </div>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

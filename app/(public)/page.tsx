@@ -33,6 +33,8 @@ export const metadata: Metadata = {
   },
 };
 
+export const dynamic = 'force-dynamic';
+
 export default async function HomePage() {
   // Fetch pricing plans from PostgreSQL (Data-driven)
   const plans = await db.plan.findMany({

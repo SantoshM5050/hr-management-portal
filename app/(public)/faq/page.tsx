@@ -3,6 +3,8 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 export default async function FaqPage() {
   const faqContent = await db.cmsContent.findUnique({
     where: { key: 'faq_items' },
