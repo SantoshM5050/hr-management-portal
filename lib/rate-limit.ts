@@ -53,16 +53,25 @@ export function checkRateLimit(key: string, limit = 10, windowSeconds = 60): Rat
   };
 }
 
-// Cleanup expired keys periodically
+// Cleanup expired keys periodically (unref'd to prevent keeping Vercel build worker event loop active)
 if (typeof setInterval !== 'undefined') {
-  setInterval(() => {
+  const cleanupTimer = setInterval(() => {
     const now = Date.now();
     const keys = Array.from(memoryStore.keys());
+
     for (const key of keys) {
       const rec = memoryStore.get(key);
+
       if (rec && now > rec.resetAt) {
         memoryStore.delete(key);
       }
     }
   }, 60000);
+
+  if (
+    cleanupTimer &&
+    typeof cleanupTimer.unref === "function"
+  ) {
+    cleanupTimer.unref();
+  }
 }
