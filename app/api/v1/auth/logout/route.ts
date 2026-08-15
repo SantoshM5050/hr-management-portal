@@ -5,21 +5,17 @@ import { logAuditEvent } from '@/lib/audit';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  try {
-    const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-    if (token) {
-      const session = verifyJwt(token);
-      if (session) {
-        await logAuditEvent({
-          userId: session.userId,
-          organizationId: session.tenantId,
-          action: 'AUTH_LOGOUT',
-          entity: 'USER',
-        });
-      }
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  if (token) {
+    const session = verifyJwt(token);
+    if (session) {
+      await logAuditEvent({
+        userId: session.userId,
+        organizationId: session.tenantId,
+        action: 'AUTH_LOGOUT',
+        entity: 'USER',
+      });
     }
-  } catch (err) {
-    console.error('Error during logout audit log processing:', err);
   }
 
   const response = NextResponse.json({

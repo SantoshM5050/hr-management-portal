@@ -1,18 +1,14 @@
 import { NextRequest } from 'next/server';
+import { headers } from 'next/headers';
 import { apiSuccess } from '@/lib/api-response';
 import { resolveTenantFromHost } from '@/lib/tenant-context';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const host = request.headers.get('host') || 'localhost:3000';
-  let tenantContext: any = { scope: 'PUBLIC_SAAS', status: 'ACTIVE' };
-
-  try {
-    tenantContext = await resolveTenantFromHost(host);
-  } catch (err) {
-    console.error('Health check tenant resolution warning:', err);
-  }
+  const reqHeaders = headers();
+  const host = reqHeaders.get('host') || request.headers.get('host') || 'localhost:3000';
+  const tenantContext = await resolveTenantFromHost(host);
 
   return apiSuccess({
     status: 'healthy',

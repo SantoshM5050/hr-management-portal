@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { cookies, headers } from 'next/headers';
 import { db } from '@/lib/db';
 import { SESSION_COOKIE_NAME, verifyJwt } from '@/lib/auth';
 import { resolveTenantFromHost } from '@/lib/tenant-context';
@@ -7,7 +8,8 @@ import { apiSuccess, apiError } from '@/lib/api-response';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const cookieStore = cookies();
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value || request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (!token) {
     return apiError('Authentication required', 'UNAUTHORIZED', 401);
   }
@@ -33,7 +35,8 @@ export async function GET(request: NextRequest) {
       return apiError('User account is inactive or suspended', 'FORBIDDEN', 403);
     }
 
-    const host = request.headers.get('host') || 'localhost:3000';
+    const reqHeaders = headers();
+    const host = reqHeaders.get('host') || request.headers.get('host') || 'localhost:3000';
     const tenantContext = await resolveTenantFromHost(host);
 
     return apiSuccess({
