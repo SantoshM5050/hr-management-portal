@@ -84,12 +84,30 @@ export async function POST(request: NextRequest) {
       return apiError(`Subdomain '${slug}' is already reserved by another organization.`, 'CONFLICT', 409);
     }
 
-    // Verify OrganizationType
-    const orgType = await db.organizationType.findUnique({
+    // Verify or Auto-create OrganizationType fallback
+    let orgType = await db.organizationType.findUnique({
       where: { code: orgTypeCode || 'COMPANY' },
     });
+
     if (!orgType) {
-      return apiError('Invalid organization type selected', 'VALIDATION_ERROR', 422);
+      const defaultTermsMap: Record<string, any> = {
+        COMPANY: { department: 'Department', designation: 'Designation', personType: 'Employee', unit: 'Business Unit' },
+        STARTUP: { department: 'Team', designation: 'Role', personType: 'Team Member', unit: 'Squad' },
+        SCHOOL: { department: 'Faculty / Department', designation: 'Post / Position', personType: 'Teacher / Staff / Student', unit: 'Grade / Class' },
+        COLLEGE: { department: 'Academic Department', designation: 'Professor / Lecturer / Staff', personType: 'Faculty / Student', unit: 'School / College' },
+        HOSPITAL: { department: 'Medical Department', designation: 'Specialization / Role', personType: 'Doctor / Nurse / Staff', unit: 'Ward / Unit' },
+        FACTORY: { department: 'Shift / Department', designation: 'Operator / Supervisor', personType: 'Worker / Staff', unit: 'Plant / Line' },
+        NGO: { department: 'Program / Project', designation: 'Designation', personType: 'Staff / Volunteer', unit: 'Field Office' },
+      };
+
+      const selectedCode = orgTypeCode || 'COMPANY';
+      orgType = await db.organizationType.create({
+        data: {
+          code: selectedCode,
+          name: orgName.trim(),
+          defaultTerminology: defaultTermsMap[selectedCode] || defaultTermsMap['COMPANY'],
+        },
+      });
     }
 
     // Hash Password
@@ -177,16 +195,25 @@ export async function POST(request: NextRequest) {
       });
 
       // 6. Enable Core Module
-      const coreModule = await tx.module.findUnique({ where: { code: 'CORE' } });
-      if (coreModule) {
-        await tx.organizationModule.create({
+      let coreModule = await tx.module.findUnique({ where: { code: 'CORE' } });
+      if (!coreModule) {
+        coreModule = await tx.module.create({
           data: {
-            organizationId: org.id,
-            moduleId: coreModule.id,
-            isEnabled: true,
+            code: 'CORE',
+            name: 'Universal Core HR & Org Structure',
+            description: 'Core people, units, roles, and settings',
+            isCore: true,
           },
         });
       }
+
+      await tx.organizationModule.create({
+        data: {
+          organizationId: org.id,
+          moduleId: coreModule.id,
+          isEnabled: true,
+        },
+      });
 
       return { user, org, membership, ownerRole };
     });
@@ -251,6 +278,10 @@ export async function POST(request: NextRequest) {
       return apiError('Subdomain is already reserved by another organization.', 'CONFLICT', 409);
     }
 
-    return apiError('An unexpected error occurred during signup', 'INTERNAL_ERROR', 500);
+    const detailMsg = err?.message
+      ? `Signup error: ${err.message}`
+      : 'An unexpected error occurred during signup';
+
+    return apiError(detailMsg, 'INTERNAL_ERROR', 500);
   }
 }
