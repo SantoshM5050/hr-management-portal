@@ -6,9 +6,14 @@ import { db } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 export default async function FaqPage() {
-  const faqContent = await db.cmsContent.findUnique({
-    where: { key: 'faq_items' },
-  });
+  let faqContent = null;
+  try {
+    faqContent = await db.cmsContent.findUnique({
+      where: { key: 'faq_items' },
+    });
+  } catch (err) {
+    console.error('Failed to fetch FAQ content from database:', err);
+  }
 
   const faqs = (faqContent?.payload as { question: string; answer: string }[]) || [
     { question: 'What is Universal HRMS?', answer: 'A multi-tenant SaaS platform that adapts to company, school, college, hospital, factory, and NGO organization types.' },

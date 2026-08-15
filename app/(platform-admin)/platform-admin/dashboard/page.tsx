@@ -9,17 +9,31 @@ import { db } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 export default async function PlatformDashboardPage() {
-  const [totalLeads, newLeads, convertedLeads, totalTenants] = await Promise.all([
-    db.lead.count(),
-    db.lead.count({ where: { status: 'NEW' } }),
-    db.lead.count({ where: { status: 'CONVERTED' } }),
-    db.organization.count(),
-  ]);
+  let totalLeads = 0;
+  let newLeads = 0;
+  let convertedLeads = 0;
+  let totalTenants = 0;
+  let recentLeads: any[] = [];
 
-  const recentLeads = await db.lead.findMany({
-    take: 5,
-    orderBy: { createdAt: 'desc' },
-  });
+  try {
+    const [tLeads, nLeads, cLeads, tTenants] = await Promise.all([
+      db.lead.count(),
+      db.lead.count({ where: { status: 'NEW' } }),
+      db.lead.count({ where: { status: 'CONVERTED' } }),
+      db.organization.count(),
+    ]);
+    totalLeads = tLeads;
+    newLeads = nLeads;
+    convertedLeads = cLeads;
+    totalTenants = tTenants;
+
+    recentLeads = await db.lead.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+    });
+  } catch (err) {
+    console.error('Failed to fetch dashboard stats from database:', err);
+  }
 
   const conversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
 
@@ -104,7 +118,7 @@ export default async function PlatformDashboardPage() {
             {recentLeads.length === 0 ? (
               <div className="p-8 text-center text-xs text-surface-500">No lead requests submitted yet.</div>
             ) : (
-              recentLeads.map((lead) => (
+              recentLeads.map((lead: any) => (
                 <div key={lead.id} className="p-4 flex items-center justify-between hover:bg-surface-50 dark:hover:bg-surface-900/50 transition-colors">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">

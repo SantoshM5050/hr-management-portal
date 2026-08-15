@@ -37,10 +37,15 @@ export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   // Fetch pricing plans from PostgreSQL (Data-driven)
-  const plans = await db.plan.findMany({
-    where: { isActive: true },
-    orderBy: { displayOrder: 'asc' },
-  });
+  let plans: any[] = [];
+  try {
+    plans = await db.plan.findMany({
+      where: { isActive: true },
+      orderBy: { displayOrder: 'asc' },
+    });
+  } catch (err) {
+    console.error('Failed to fetch plans from database:', err);
+  }
 
   const orgSolutions = [
     { type: 'company', name: 'Companies & Corporations', icon: Building2, desc: 'Corporate hierarchies, departments, designations, manager approvals, and global employee directories.' },

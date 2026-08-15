@@ -15,10 +15,15 @@ export const metadata: Metadata = {
 };
 
 export default async function PricingPage() {
-  const plans = await db.plan.findMany({
-    where: { isActive: true },
-    orderBy: { displayOrder: 'asc' },
-  });
+  let plans: any[] = [];
+  try {
+    plans = await db.plan.findMany({
+      where: { isActive: true },
+      orderBy: { displayOrder: 'asc' },
+    });
+  } catch (err) {
+    console.error('Failed to fetch pricing plans from database:', err);
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
