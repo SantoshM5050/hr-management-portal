@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 import { db } from '@/lib/db';
 import { hashPassword, signJwt, getSessionCookieOptions } from '@/lib/auth';
 import { checkRateLimit } from '@/lib/rate-limit';
@@ -12,7 +13,8 @@ const RESERVED_SUBDOMAINS = new Set([
 ]);
 
 export async function POST(request: NextRequest) {
-  const clientIp = request.headers.get('x-forwarded-for') || '127.0.0.1';
+  const reqHeaders = headers();
+  const clientIp = reqHeaders.get('x-forwarded-for') || request.headers.get('x-forwarded-for') || '127.0.0.1';
 
   // 1. Rate limiting (Max 3 signup attempts per minute)
   const rateCheck = checkRateLimit(`signup:${clientIp}`, 3, 60);

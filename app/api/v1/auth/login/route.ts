@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 import { db } from '@/lib/db';
 import { comparePassword, signJwt, getSessionCookieOptions } from '@/lib/auth';
 import { resolveTenantFromHost } from '@/lib/tenant-context';
@@ -9,8 +10,9 @@ import { apiSuccess, apiError } from '@/lib/api-response';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  const host = request.headers.get('host') || 'localhost:3000';
-  const clientIp = request.headers.get('x-forwarded-for') || '127.0.0.1';
+  const reqHeaders = headers();
+  const host = reqHeaders.get('host') || request.headers.get('host') || 'localhost:3000';
+  const clientIp = reqHeaders.get('x-forwarded-for') || request.headers.get('x-forwarded-for') || '127.0.0.1';
 
   // 1. Rate Limiting Protection (Max 5 login attempts per minute per IP)
   const rateCheck = checkRateLimit(`login:${clientIp}`, 5, 60);
