@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 import { SESSION_COOKIE_NAME, verifyJwt } from '@/lib/auth';
 import { logAuditEvent } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  headers();
+
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (token) {
     const session = verifyJwt(token);
