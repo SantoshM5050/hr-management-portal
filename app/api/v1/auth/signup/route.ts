@@ -50,15 +50,37 @@ export async function POST(request: NextRequest) {
       return apiError(`Subdomain '${slug}' is reserved for platform infrastructure.`, 'CONFLICT', 409);
     }
 
+    // Resolve environment ROOT_DOMAIN
+    const rawRootDomain = (process.env.ROOT_DOMAIN || process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost:3000').trim();
+    const rootDomain = rawRootDomain.split(':')[0].toLowerCase().trim();
+    const isLocalhost = rootDomain === 'localhost' || rootDomain === '127.0.0.1';
+
+    // Domain name stored in DB (without port)
+    const tenantDomainName = `${slug}.${rootDomain}`;
+
+    // Full tenant hostname for client display & redirects (includes port if present in rawRootDomain)
+    const tenantHostname = rawRootDomain.includes(':') 
+      ? `${slug}.${rawRootDomain}` 
+      : `${slug}.${rootDomain}`;
+
+    const protocol = request.headers.get('x-forwarded-proto') || (isLocalhost ? 'http' : 'https');
+    const redirectUrl = `${protocol}://${tenantHostname}/app/dashboard`;
+
     // Check if user already exists
     const existingUser = await db.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
       return apiError('An account with this email address already exists.', 'CONFLICT', 409);
     }
 
-    // Check if subdomain is already taken
+    // Check if subdomain is already taken in Organization
     const existingOrg = await db.organization.findUnique({ where: { slug } });
     if (existingOrg) {
+      return apiError(`Subdomain '${slug}' is already reserved by another organization.`, 'CONFLICT', 409);
+    }
+
+    // Check if domain is already taken in Domain
+    const existingDomain = await db.domain.findUnique({ where: { domain: tenantDomainName } });
+    if (existingDomain) {
       return apiError(`Subdomain '${slug}' is already reserved by another organization.`, 'CONFLICT', 409);
     }
 
@@ -98,7 +120,7 @@ export async function POST(request: NextRequest) {
           status: 'ACTIVE',
           domains: {
             create: {
-              domain: `${slug}.localhost`,
+              domain: tenantDomainName,
               type: 'SUBDOMAIN',
               isPrimary: true,
               isVerified: true,
@@ -204,7 +226,9 @@ export async function POST(request: NextRequest) {
           id: result.org.id,
           name: result.org.name,
           slug: result.org.slug,
-          subdomain: `${slug}.localhost`,
+          subdomain: tenantHostname,
+          domain: tenantDomainName,
+          url: redirectUrl,
         },
       },
     });
@@ -212,8 +236,21 @@ export async function POST(request: NextRequest) {
     response.cookies.set(cookieOpts.name, sessionToken, cookieOpts);
 
     return response;
-  } catch (err) {
-    console.error('Signup error:', err);
+  } catch (err: any) {
+    console.error('Signup API Failure:', {
+      message: err?.message,
+      code: err?.code,
+      meta: err?.meta,
+    });
+
+    if (err?.code === 'P2002') {
+      const target = err?.meta?.target;
+      if (Array.isArray(target) && target.includes('email')) {
+        return apiError('An account with this email address already exists.', 'CONFLICT', 409);
+      }
+      return apiError('Subdomain is already reserved by another organization.', 'CONFLICT', 409);
+    }
+
     return apiError('An unexpected error occurred during signup', 'INTERNAL_ERROR', 500);
   }
 }

@@ -59,6 +59,18 @@ export default function SignupPage() {
     }
   };
 
+  const getRootDomain = () => {
+    if (process.env.NEXT_PUBLIC_ROOT_DOMAIN) {
+      return process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+    }
+    if (typeof window !== 'undefined' && window.location.host) {
+      return window.location.host;
+    }
+    return 'localhost:3000';
+  };
+
+  const rootDomainDisplay = getRootDomain();
+
   return (
     <div className="max-w-md mx-auto px-4 py-16 space-y-6">
       <div className="text-center space-y-2">
@@ -76,7 +88,7 @@ export default function SignupPage() {
               Your tenant instance is ready at: <strong className="text-brand-600">{successData.organization.subdomain}</strong>
             </p>
             <div className="pt-2">
-              <a href={`http://${successData.organization.subdomain}:3000/app/dashboard`} className="block">
+              <a href={successData.organization.url || `http://${successData.organization.subdomain}/app/dashboard`} className="block">
                 <Button variant="primary" className="w-full">Open Organization App</Button>
               </a>
             </div>
@@ -149,7 +161,7 @@ export default function SignupPage() {
                 placeholder="acme"
                 value={subdomain}
                 onChange={(e) => setSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-'))}
-                helperText={subdomain ? `URL: ${subdomain}.localhost:3000` : 'Unique subdomain slug'}
+                helperText={subdomain ? `URL: ${subdomain}.${rootDomainDisplay}` : 'Unique subdomain slug'}
                 required
               />
 
